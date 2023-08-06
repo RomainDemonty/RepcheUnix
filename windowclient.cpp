@@ -45,8 +45,13 @@ WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::Wi
     ui->tableWidgetPanier->horizontalHeader()->setStyleSheet("background-color: lightyellow");
 
     // Recuperation de l'identifiant de la file de messages
-    //fprintf(stderr,"(CLIENT %d) Recuperation de l'id de la file de messages\n",getpid());
+    fprintf(stderr,"(CLIENT %d) Recuperation de l'id de la file de messages\n",getpid());
     // TO DO
+    if((idQ = msgget(CLE,0)) == -1)
+    {
+      perror("Erreur de msgget \n");
+      exit(1);
+    }
 
     // Recuperation de l'identifiant de la mémoire partagée
     //fprintf(stderr,"(CLIENT %d) Recuperation de l'id de la mémoire partagée\n",getpid());
@@ -60,6 +65,23 @@ WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::Wi
 
     // Envoi d'une requete de connexion au serveur
     // TO DO
+
+    MESSAGE msg1;
+
+    msg1.type = 1 ;
+    msg1.expediteur = getpid();
+    msg1.requete = CONNECT ;
+
+    strcpy(msg1.data2, "connexion");
+    printf("Envoie de la requete : %s \n" , msg1.data2);
+
+    if(msgsnd(idQ,&msg1,sizeof(MESSAGE) - sizeof(long), 0) == -1)
+    {
+      perror("Erreur d envoi");
+      //On supprime la file de message
+      msgctl(idQ,IPC_RMID,NULL);
+      exit(1);
+    }
 
     // Exemples à supprimer
     setPublicite("Promotions sur les concombres !!!");
@@ -300,6 +322,22 @@ void WindowClient::closeEvent(QCloseEvent *event)
 {
   // TO DO (étape 1)
   // Envoi d'une requete DECONNECT au serveur
+    MESSAGE msg;
+
+    msg.type = 1 ;
+    msg.expediteur = getpid();
+    msg.requete = DECONNECT ;
+
+    strcpy(msg.data2, "deconnection");
+    printf("Envoie de la requete : %s \n" , msg.data2);
+
+    if(msgsnd(idQ,&msg,sizeof(MESSAGE) - sizeof(long), 0) == -1)
+    {
+      perror("Erreur d envoi");
+      //On supprime la file de message
+      msgctl(idQ,IPC_RMID,NULL);
+      exit(1);
+    }
 
   // envoi d'un logout si logged
 
