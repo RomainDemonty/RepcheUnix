@@ -16,7 +16,7 @@ using namespace std;
 extern WindowClient *w;
 
 int idQ, idShm;
-bool logged;
+bool logged = 0;
 char* pShm;
 ARTICLE articleEnCours;
 float totalCaddie = 0.0;
@@ -62,6 +62,11 @@ WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::Wi
 
     // Armement des signaux
     // TO DO
+
+    struct sigaction A;
+    A.sa_handler = handlerSIGUSR1;
+    A.sa_flags = 0;
+    sigaction(SIGUSR1 , &A, NULL);
 
     // Envoi d'une requete de connexion au serveur
     // TO DO
@@ -326,6 +331,23 @@ void WindowClient::closeEvent(QCloseEvent *event)
 
     msg.type = 1 ;
     msg.expediteur = getpid();
+
+    // envoi d'un logout si logged
+    if(logged == 1)
+    {
+      msg.requete = LOGOUT;
+          
+      if(msgsnd(idQ,&msg,sizeof(MESSAGE) - sizeof(long), 0) == -1)
+      {
+        perror("Erreur d envoi");
+        //On supprime la file de message
+        msgctl(idQ,IPC_RMID,NULL);
+        exit(1);
+      }
+    }
+
+
+    // Envoi d'une requete de deconnexion au serveur
     msg.requete = DECONNECT ;
 
     strcpy(msg.data2, "deconnection");
@@ -339,10 +361,6 @@ void WindowClient::closeEvent(QCloseEvent *event)
       exit(1);
     }
 
-  // envoi d'un logout si logged
-
-  // Envoi d'une requete de deconnexion au serveur
-
   exit(0);
 }
 
@@ -353,6 +371,22 @@ void WindowClient::on_pushButtonLogin_clicked()
 {
     // Envoi d'une requete de login au serveur
     // TO DO
+    MESSAGE msg;
+
+    msg.type = 1 ;
+    msg.expediteur = getpid();
+    msg.requete = LOGIN ;
+    msg.data1 = isNouveauClientChecked();
+    strcpy(msg.data2,getNom());
+    strcpy(msg.data3,getMotDePasse());
+
+    if(msgsnd(idQ,&msg,sizeof(MESSAGE) - sizeof(long), 0) == -1)
+    {
+      perror("Erreur d envoi");
+      //On supprime la file de message
+      msgctl(idQ,IPC_RMID,NULL);
+      exit(1);
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -363,6 +397,25 @@ void WindowClient::on_pushButtonLogout_clicked()
 
     // Envoi d'une requete de logout au serveur
     // TO DO
+    MESSAGE msg;
+    msg.type = 1 ;
+    msg.expediteur = getpid();
+
+    // envoi d'un logout si logged
+    if(logged == 1)
+    {
+      msg.requete = LOGOUT;
+          
+      if(msgsnd(idQ,&msg,sizeof(MESSAGE) - sizeof(long), 0) == -1)
+      {
+        perror("Erreur d envoi");
+        //On supprime la file de message
+        msgctl(idQ,IPC_RMID,NULL);
+        exit(1);
+      }
+
+      logoutOK();
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -444,6 +497,12 @@ void handlerSIGUSR1(int sig)
       switch(m.requete)
       {
         case LOGIN :
+                    if(m.data1 == 1)
+                    {
+                      w->loginOK();
+                      logged = 1;
+                    }
+                    w->dialogueMessage("LOGIN",m.data4);
                     break;
 
         case CONSULT : // TO DO (étape 3)
