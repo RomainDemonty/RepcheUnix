@@ -1,5 +1,5 @@
 
-#define CLE 1234
+#define CLE 1235
 
 //      requete             sens      data1           data2         data3          data4          data5
 #define CONNECT       1  // Cl -> S

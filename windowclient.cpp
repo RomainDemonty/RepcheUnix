@@ -54,11 +54,16 @@ WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::Wi
     }
 
     // Recuperation de l'identifiant de la mémoire partagée
-    //fprintf(stderr,"(CLIENT %d) Recuperation de l'id de la mémoire partagée\n",getpid());
+    fprintf(stderr,"(CLIENT %d) Recuperation de l'id de la mémoire partagée\n",getpid());
     // TO DO
-
+    if((idShm = shmget(CLE , 0, 0)) == -1)
+    {
+      perror("(Publicite) erreur de shmget");
+      exit(1);
+    }
     // Attachement à la mémoire partagée
     // TO DO
+    pShm =  (char*)shmat(idShm, NULL , 0);
 
     // Armement des signaux
     // TO DO
@@ -67,6 +72,11 @@ WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::Wi
     A.sa_handler = handlerSIGUSR1;
     A.sa_flags = 0;
     sigaction(SIGUSR1 , &A, NULL);
+
+    struct sigaction B;
+    B.sa_handler = handlerSIGUSR2;
+    B.sa_flags = 0;
+    sigaction(SIGUSR2 , &B, NULL);
 
     // Envoi d'une requete de connexion au serveur
     // TO DO
@@ -78,7 +88,7 @@ WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::Wi
     msg1.requete = CONNECT ;
 
     strcpy(msg1.data2, "connexion");
-    printf("Envoie de la requete : %s \n" , msg1.data2);
+    printf("Envoie de la requete test: %s \n" , msg1.data2);
 
     if(msgsnd(idQ,&msg1,sizeof(MESSAGE) - sizeof(long), 0) == -1)
     {
@@ -88,10 +98,12 @@ WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::Wi
       exit(1);
     }
 
+  /*
     // Exemples à supprimer
     setPublicite("Promotions sur les concombres !!!");
     setArticle("pommes",5.53,18,"pommes.jpg");
     ajouteArticleTablePanier("cerises",8.96,2);
+  */
 }
 
 WindowClient::~WindowClient()
@@ -526,4 +538,9 @@ void handlerSIGUSR1(int sig)
     }
 }
 
+
+void handlerSIGUSR2(int sig)
+{
+  w->setPublicite(pShm);
+}
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////

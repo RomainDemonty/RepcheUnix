@@ -15,7 +15,7 @@
 
 #include "FichierClient.h"
 
-int idQ,idShm,idSem;
+int idQ,idShm,idSem,idfilspub,idfilsbdd;
 int fdPipe[2];
 TAB_CONNEXIONS *tab;
 
@@ -37,13 +37,21 @@ int main()
   // Creation des ressources
   // Creation de la file de message
   fprintf(stderr,"(SERVEUR %d) Creation de la file de messages\n",getpid());
-  if ((idQ = msgget(CLE,IPC_CREAT | IPC_EXCL | 0600)) == -1)  // CLE definie dans protocole.h
+  if ((idQ = msgget(CLE,IPC_CREAT | IPC_EXCL | 0666)) == -1)  // CLE definie dans protocole.h
   {
     perror("(SERVEUR) Erreur de msgget");
+    kill(getpid(),SIGINT);
     exit(1);
   }
 
   // TO BE CONTINUED
+  fprintf(stderr,"(SERVEUR %d) Creation de la memoire partagee\n",getpid());
+  if((idShm = shmget(CLE, 52 , IPC_CREAT | IPC_EXCL |0666)) == -1)
+  {
+    perror("(SERVEUR) Erreur de la memoire partagee");
+    kill(getpid(),SIGINT);
+    exit(1);
+  }
 
   // Creation du pipe
   // TO DO
@@ -64,6 +72,15 @@ int main()
 
   // Creation du processus Publicite (étape 2)
   // TO DO
+
+  idfilspub = fork();
+  if(idfilspub == 0)
+  {
+    if(execl("./Publicite", "Publicite" , NULL) == -1)
+    {
+      perror("Erreur de execl pour publicite");
+    }
+  }
 
   // Creation du processus AccesBD (étape 4)
   // TO DO
@@ -186,6 +203,16 @@ int main()
                       break;
 
       case UPDATE_PUB :  // TO DO
+                      printf("Reception de updatePub \0");
+
+                      //Si le pid dans le tableau est différent de zéro (c'est a dire une fenêtre ouverte on lui envoies un signal pour dire que ça a changé)
+                      for(int i = 0 ; i < 6 ; i++)
+                      {
+                        if(tab->connexions[i].pidFenetre != 0)
+                        {
+                          kill(tab->connexions[i].pidFenetre,SIGUSR2);
+                        }
+                      }
                       break;
 
       case CONSULT :  // TO DO
@@ -239,5 +266,12 @@ void handlerSIGINT(int sig)
 {
   printf("Fin du serveur et de la file de message \n");
   msgctl(idQ,IPC_RMID,NULL);
+
+  printf("Fin du serveur et de la fils pub\n");
+  kill(idfilspub,SIGINT);
+
+  printf("Fin de de la memoire partagee\n");
+  shmctl(idShm,IPC_RMID,NULL);
+
   exit(1);
 }
